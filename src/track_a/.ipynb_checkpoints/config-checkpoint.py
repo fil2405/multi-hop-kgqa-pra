@@ -1,0 +1,1 @@
+TRAIN_PATH = "dataset_processed/train_set.parquet"
