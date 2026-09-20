@@ -18,7 +18,7 @@ for p in [str(SRC_DIR), str(DATA_DIR)]:
 import data.load_graph as lg
 import data.parse_qa as pq_parser
 from data.entity_linker import EntityLinker
-import track_a.path_traversal as pt
+import pra_pipeline.path_traversal as pt
 
 def extract_rel(g, hop=1):
     relations = set()
