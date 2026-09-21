@@ -36,7 +36,7 @@ A scalable, out-of-core Question Answering engine over large-scale Knowledge Gra
         │
         ▼
    Ranker Evaluation   ─────────► Trains Logistic Regression / SGD; scores Hits@1 & MRR
-
+```
 ---
 
 ## Quickstart
