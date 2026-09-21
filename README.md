@@ -48,14 +48,14 @@ A scalable, out-of-core Question Answering engine over large-scale Knowledge Gra
 Ensure Docker Desktop is running, then clone and execute the entire pipeline with:
 
 ```bash
-# 1. Clone repository
-git clone [https://github.com/fil2405/multi-hop-kgqa-pra.git](https://github.com/fil2405/multi-hop-kgqa-pra.git)
+# Clone repository
+git clone https://github.com/fil2405/multi-hop-kgqa-pra.git
 cd multi-hop-kgqa-pra
 
-# 2. Build image
+# Build image
 docker build -t kgqa-pra .
 
-# 3. Run end-to-end pipeline (downloads dataset, extracts features, trains & evaluates)
+# Run end-to-end pipeline
 docker run --rm kgqa-pra
 ```
 
@@ -68,21 +68,21 @@ docker run --rm -e HOP=2 kgqa-pra
 ### Option B: Local Python Environment
 
 ```bash
-# 1. Clone repository
-git clone [https://github.com/fil2405/multi-hop-kgqa-pra.git](https://github.com/fil2405/multi-hop-kgqa-pra.git)
+# Clone repository
+git clone https://github.com/fil2405/multi-hop-kgqa-pra.git
 cd multi-hop-kgqa-pra
 
-# 2. Create and activate virtual environment
+# Create and activate virtual environment
 python3 -m venv venv
 source venv/bin/activate  # On Windows: .\venv\Scripts\activate
 
-# 3. Install dependencies
+# Install dependencies
 pip install -r requirements.txt
 
-# 4. Fetch and extract MetaQA dataset
+# Fetch and extract MetaQA dataset
 python setup_data.py
 
-# 5. Extract features and evaluate
+# Extract features and evaluate
 python src/pra_pipeline/feature_extractor.py
 python src/pra_pipeline/model.py
 ```
