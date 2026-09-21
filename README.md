@@ -1,87 +1,147 @@
 # Multi-Hop KGQA – Path Ranking Engine
+
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-This project is a scalable, out-of-core Question Answering engine over large-scale Knowledge Graphs.
+A scalable, out-of-core Question Answering engine over large-scale Knowledge Graphs.
 
-## What Multi-Hop KGQA does
+---
 
-At a high level:
+## Engineering Highlights
 
-* Resolves exponential state explosion over high-degree hub entities by matching relation keywords
-* Eliminates memory saturation during wide-matrix feature generation by streaming chunks
-* Mitigates label sparsity during training via bounded negative sampling
-* Trains ranking models to score valid target entities across multi-hop reasoning chains
+* **Out-of-Core Processing:** Prevents RAM exhaustion ($O(N)$ memory growth) during large-scale graph traversals.
+* **Search Space Pruning:** Mitigates combinatorial path explosion over high-degree nodes.
+* **Bounded Negative Sampling:** Alleviates extreme class imbalance and label sparsity.
+* **Production-Grade Containerization:** Fully reproducible end-to-end pipeline containerization.
 
-## Repository clone
+---
+
+## Pipeline Architecture
+
+```text
+[ Natural Language Query ]
+|
+▼
+1.  Entity Linker      ─────────► Grounds question topic entities to KG nodes
+    |
+    ▼
+2.  Heuristic Filter   ─────────► Intersects query tokens with relation keywords
+    |
+    ▼
+3.  Path Traversal     ─────────► Computes random-walk transition probabilities (PRA)
+    |
+    ▼
+4.  Out-of-Core Writer ─────────► Streams bounded memory chunks to Parquet
+    (int8/float32)
+    |
+    ▼
+5.  Ranker Evaluation  ─────────► Trains Logistic Regression / SGD; scores Hits@1 & MRR
+```
+
+---
+
+## Quickstart
+
+### Option A: Run via Docker (Recommended, Zero Host Dependencies)
+
+Ensure Docker Desktop is running, then clone and execute the entire pipeline with:
 
 ```bash
-git clone https://github.com/fil2405/multi-hop-kgqa-pra.git
+# 1. Clone repository
+git clone [https://github.com/fil2405/multi-hop-kgqa-pra.git](https://github.com/fil2405/multi-hop-kgqa-pra.git)
 cd multi-hop-kgqa-pra
+
+# 2. Build image
+docker build -t kgqa-pra .
+
+# 3. Run end-to-end pipeline (downloads dataset, extracts features, trains & evaluates)
+docker run --rm kgqa-pra
 ```
 
-## Run the project
-
-### Requirements
-
-* Python 3.10+
-* pandas
-* pyarrow
-* scikit-learn
-
-### Start the stack
+To run a specific reasoning depth (e.g., 1-hop, 2-hop, or 3-hop), pass the `HOP` environment variable:
 
 ```bash
-python -m venv venv
-source venv/bin/activate
+docker run --rm -e HOP=2 kgqa-pra
+```
+
+### Option B: Local Python Environment
+
+```bash
+# 1. Clone repository
+git clone [https://github.com/fil2405/multi-hop-kgqa-pra.git](https://github.com/fil2405/multi-hop-kgqa-pra.git)
+cd multi-hop-kgqa-pra
+
+# 2. Create and activate virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: .\venv\Scripts\activate
+
+# 3. Install dependencies
 pip install -r requirements.txt
-```
 
-## Logical Flow
+# 4. Fetch and extract MetaQA dataset
+python setup_data.py
 
-1. Knowledge Graph and QA splits are loaded and parsed
-2. Topic entities in natural language queries are grounded to KG nodes via an Entity Linker
-3. A Heuristic Filter prunes the search space by intersecting relation keywords with query tokens
-4. Random-walk transition probabilities are computed for valid multi-hop paths
-5. Features are written out-of-core to compressed Parquet files in manageable chunks
-6. Logistic Regression and SGD models are trained on the extracted features
-7. Candidates are ranked and evaluated using Hits@1 and MRR metrics
-
-## Technologies
-
-| Technology | What does Here |
-| --- | --- |
-| Python | Core language for the pipeline execution |
-| PyArrow | Handles out-of-core data streaming and explicit type-casting |
-| Parquet | Compressed file format for storing wide-matrix features on disk |
-| Pandas | Data manipulation and processing |
-| Scikit-learn | Model training and evaluation |
-
-## Benchmarking
-
-For benchmarking purpose, the feature extraction and evaluation scripts can be used:
-
-```bash
+# 5. Extract features and evaluate
 python src/pra_pipeline/feature_extractor.py
 python src/pra_pipeline/model.py
 ```
 
-## Results
+## Tech Stack
 
-### 1-hop -- Standard Logistic Regression
+| Technology | Role in Architecture |
+| :--- | :--- |
+| Python 3.11 | Core pipeline execution and orchestration |
+| Docker | Isolated, multi-stage runtime for automated pipeline reproduction |
+| Apache Arrow / PyArrow | Streaming record batching, schema typing, and out-of-core I/O |
+| Apache Parquet | Columnar disk storage format for sparse feature matrices |
+| Scikit-learn | Linear model training, ranking logic, and evaluation metrics |
+| Pandas / NumPy | Vectorized score aggregation, ranking operations, and profiling |
 
-* Train Hits@1: 0.9330 | MRR: 0.9569
-* Dev Hits@1: 0.9356 | MRR: 0.9589
-* Test Hits@1: 0.9338 | MRR: 0.9579
+## System Benchmarks & Results
 
-### 2-hop -- Out-of-Core Logistic Regression
+### 1. Data Engineering & System Profiling
 
-* Train Hits@1: 0.9630 | MRR: 0.9681
-* Dev Hits@1: 0.9625 | MRR: 0.9675
-* Test Hits@1: 0.9639 | MRR: 0.9684
+Memory footprint and latency benchmarked across reasoning chain depths:
 
-### 3-hop -- Out-of-Core Logistic Regression
+| Configuration | Extraction Time | Peak RAM (MB) | Inference Latency | Throughput (QPS) |
+| :--- | :--- | :--- | :--- | :--- |
+| 1-Hop | | | | |
+| 2-Hop | | | | |
+| 3-Hop | | | | |
 
-* Train Hits@1: 0.9190 | MRR: 0.9393
-* Dev Hits@1: 0.8702 | MRR: 0.9059
-* Test Hits@1: 0.8675 | MRR: 0.9049
+> **Memory Stability Note:** *While standard in-memory DataFrame extraction triggers Out-Of-Memory (`OOM`) crashes on 2-hop and 3-hop traversals under constrained RAM environments, the chunked Parquet streaming pipeline guarantees bounded peak memory usage regardless of total dataset size.*
+
+### 2. Task Accuracy (Hits@1 & MRR)
+
+Evaluated on the official MetaQA vanilla benchmark:
+
+| Split | Metric | 1-Hop | 2-Hop | 3-Hop |
+| :--- | :--- | :--- | :--- | :--- |
+| Train | Hits@1 | | | |
+| | MRR | | | |
+| Dev | Hits@1 | | | |
+| | MRR | | | |
+| Test | Hits@1 | | | |
+| | MRR | | | |
+
+## Repository Structure
+
+```plaintext
+├── Dockerfile              # Container definition for reproducible builds
+├── .dockerignore           # Build context exclusions
+├── .gitattributes          # Repository linguist configuration
+├── .gitignore              # Ignore cache, venv, and raw dataset artifacts
+├── LICENSE                 # MIT License
+├── README.md               # Project documentation
+├── requirements.txt        # Minimal runtime dependencies
+├── setup_data.py           # Automated MetaQA dataset fetcher and parser
+└── src/
+    ├── data/               # Graph loader, QA parser, and Entity Linker
+    ├── dataset_raw_KG/     # Downloaded Knowledge Graph and raw text splits
+    └── pra_pipeline/       # Path traversal, feature extraction, and models
+```
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
