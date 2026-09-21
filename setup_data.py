@@ -15,10 +15,10 @@ EXTRACT_DIR = ROOT_DIR / "metaqa_extracted"
 def setup_metaqa():
     KG_DIR.mkdir(parents=True, exist_ok=True)
     
-    print("1. Downloading MetaQA archive...")
+    print("Downloading MetaQA archive...")
     urllib.request.urlretrieve(METAQA_URL, ZIP_PATH)
     
-    print("2. Extracting archive...")
+    print("Extracting archive...")
     with zipfile.ZipFile(ZIP_PATH, 'r') as zip_ref:
         zip_ref.extractall(EXTRACT_DIR)
         
@@ -38,7 +38,6 @@ def setup_metaqa():
             shutil.copytree(hop_src, hop_dst)
             print(f"   -> Copied {hop}-hop splits")
             
-    print("3. Cleaning up temporary files...")
     ZIP_PATH.unlink(missing_ok=True)
     shutil.rmtree(EXTRACT_DIR, ignore_errors=True)
     
