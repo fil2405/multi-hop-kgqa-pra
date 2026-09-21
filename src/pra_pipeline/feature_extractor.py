@@ -1,4 +1,3 @@
-#type: ignore
 import sys
 import random 
 import gc
@@ -9,6 +8,8 @@ import pyarrow.parquet as pq
 import conf as f
 import time
 import tracemalloc
+from collections import defaultdict
+from functools import lru_cache
 
 SRC_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = SRC_DIR / "data"
@@ -64,8 +65,10 @@ def build_features(hop=1, split="train", out_path=None):
     print(f"Found {len(candidate_paths)} valid {hop}-hop paths")
 
     expected_cols = ['question_id', 'answer', 'label']
-    for path in candidate_paths:
+    path_to_col = {}
+    for i, path in enumerate(candidate_paths):
         col_name = "_THEN_".join(path)
+        path_to_col[i] = col_name
         expected_cols.extend([col_name, f'{col_name}_X_q'])
         
     float_cols = [c for c in expected_cols if c not in ['question_id', 'answer', 'label']]
@@ -80,8 +83,8 @@ def build_features(hop=1, split="train", out_path=None):
         nonlocal parquet_writer, saved_chunks
         if not batch:
             return
-        df_chunk = pd.DataFrame(batch)
-        df_chunk = df_chunk.reindex(columns=expected_cols, fill_value=0.0)
+        df_chunk = pd.DataFrame(batch, columns=expected_cols)
+        df_chunk.fillna(0.0, inplace=True)
         df_chunk[float_cols] = df_chunk[float_cols].astype('float32')
         df_chunk['question_id'] = df_chunk['question_id'].astype('int32')
         df_chunk['label'] = df_chunk['label'].astype('int8')
@@ -99,6 +102,18 @@ def build_features(hop=1, split="train", out_path=None):
         del table
         gc.collect()
 
+    unique_relations = set(r for path in candidate_paths for r in path)
+    candidate_paths_sets = [set(p) for p in candidate_paths]
+
+    rel_keywords = {}
+    for rel in unique_relations:
+        base_rel = rel.replace('inv_', '')
+        rel_keywords[rel] = f.REL_KEYWORDS.get(base_rel, [base_rel])
+
+    @lru_cache(maxsize=100000)
+    def cached_prob(h, p_tuple):
+        return pt.prob(g, h, list(p_tuple))
+
     for q_idx, qa in enumerate(qa_data):
         raw_head = qa['topic_entity']
         head = linker.link(raw_head) 
@@ -109,23 +124,20 @@ def build_features(hop=1, split="train", out_path=None):
         q_text = qa['question'].lower()
         
         path_results = {}
-        candidate_scores = {}
+        candidate_scores = defaultdict(float)
         
-        for i, path in enumerate(candidate_paths):
-            flag = 1
-            for p in path:
-                base_rel = p.replace('inv_', '')
-                keywords = f.REL_KEYWORDS.get(base_rel, [base_rel])
-                if not any(kw in q_text for kw in keywords): #if the word is not in the question
-                    flag = 0
-                    break
-                    
-            if flag == 1:
-                reached_nodes = pt.prob(g, head, path)
-                path_results[i] = reached_nodes
-                
-                for node, p_val in reached_nodes.items():
-                    candidate_scores[node] = candidate_scores.get(node, 0.0) + p_val
+        valid_rels = {rel for rel, keywords in rel_keywords.items() if any(kw in q_text for kw in keywords)}
+        #if the word is not in the question
+
+        valid_paths_idx = [i for i, p_set in enumerate(candidate_paths_sets) if p_set.issubset(valid_rels)]
+        
+        for i in valid_paths_idx:
+            path = candidate_paths[i]
+            reached_nodes = cached_prob(head, tuple(path))
+            path_results[i] = reached_nodes
+            
+            for node, p_val in reached_nodes.items():
+                candidate_scores[node] += p_val
                     
         true_answers = set(qa['answers'])
         reached_set = set(candidate_scores.keys())
@@ -148,15 +160,14 @@ def build_features(hop=1, split="train", out_path=None):
                 'answer': candidate, 
             }
 
-            for i, path in enumerate(candidate_paths):
-                if i in path_results:
-                    prob = path_results[i].get(candidate, 0.0)
-                    if prob > 0:
-                        col_name = "_THEN_".join(path) 
-                        row[col_name] = prob
-                        row[f'{col_name}_X_q'] = prob
+            for i in valid_paths_idx:
+                prob = path_results[i].get(candidate, 0.0)
+                if prob > 0:
+                    col_name = path_to_col[i]
+                    row[col_name] = prob
+                    row[f'{col_name}_X_q'] = prob
 
-            row['label'] = 1 if candidate in qa['answers'] else 0                
+            row['label'] = 1 if candidate in true_answers else 0                
             data.append(row)
 
             if len(data) >= chunk_size:
