@@ -21,23 +21,21 @@ A scalable, out-of-core Question Answering engine over large-scale Knowledge Gra
 
 ```text
 [ Natural Language Query ]
-|
-▼
-1.  Entity Linker      ─────────► Grounds question topic entities to KG nodes
-    |
-    ▼
-2.  Heuristic Filter   ─────────► Intersects query tokens with relation keywords
-    |
-    ▼
-3.  Path Traversal     ─────────► Computes random-walk transition probabilities (PRA)
-    |
-    ▼
-4.  Out-of-Core Writer ─────────► Streams bounded memory chunks to Parquet
-    (int8/float32)
-    |
-    ▼
-5.  Ranker Evaluation  ─────────► Trains Logistic Regression / SGD; scores Hits@1 & MRR
-```
+        │
+        ▼
+1. Entity Linker       ─────────► Grounds question topic entities to KG nodes
+        │
+        ▼
+2. Heuristic Filter    ─────────► Intersects query tokens with relation keywords
+        │
+        ▼
+3. Path Traversal      ─────────► Computes random-walk transition probabilities (PRA)
+        │
+        ▼
+4. Out-of-Core Writer  ─────────► Streams bounded memory chunks to Parquet
+        │
+        ▼
+5. Ranker Evaluation   ─────────► Trains Logistic Regression / SGD; scores Hits@1 & MRR
 
 ---
 
