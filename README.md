@@ -100,7 +100,7 @@ python src/pra_pipeline/model.py
 
 ## System Benchmarks & Results
 
-### 1. Data Engineering & System Profiling
+### Data Engineering & System Profiling
 
 Memory footprint and latency benchmarked across reasoning chain depths:
 
@@ -112,7 +112,7 @@ Memory footprint and latency benchmarked across reasoning chain depths:
 
 > **Memory Stability Note:** *While standard in-memory DataFrame extraction triggers Out-Of-Memory (`OOM`) crashes on 2-hop and 3-hop traversals under constrained RAM environments, the chunked Parquet streaming pipeline guarantees bounded peak memory usage regardless of total dataset size.*
 
-### 2. Task Accuracy (Hits@1 & MRR)
+### Task Accuracy: Hits@1 & MRR
 
 Evaluated on the official MetaQA vanilla benchmark:
 
