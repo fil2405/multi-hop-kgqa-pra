@@ -1,4 +1,6 @@
 # Multi-Hop KGQA – Path Ranking Engine
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 
 This project is a scalable, out-of-core Question Answering engine over large-scale Knowledge Graphs.
 
