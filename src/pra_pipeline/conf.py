@@ -1,7 +1,8 @@
 #type: ignore
 from pathlib import Path
+import os
 
-HOP = 3 #hop: 1, 2, 3
+HOP = int(os.getenv("HOP", 1))
 
 BASE_DIR = Path(__file__).resolve().parent
 DATASET_DIR = BASE_DIR / "dataset_processed" / f"{HOP}-hop"
