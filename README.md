@@ -1,92 +1,85 @@
-# Multi-Hop KGQA: Path Ranking Engine
+# Multi-Hop KGQA – Path Ranking Engine
 
-A scalable, out-of-core Question Answering engine over large-scale Knowledge Graphs using the **Path Ranking Algorithm (PRA)** on the **MetaQA** benchmark (134k+ triples). 
+This project is a scalable, out-of-core Question Answering engine over large-scale Knowledge Graphs[cite: 1].
 
-This project addresses the combinatorial path explosion inherent in multi-hop relational reasoning through **question-guided heuristic pruning** and an **out-of-core streaming feature generation pipeline** built with PyArrow and Parquet.
+## What Multi-Hop KGQA does
 
----
+At a high level:
 
-## 📌 Key Architectural Highlights
+* Resolves exponential state explosion over high-degree hub entities by matching relation keywords[cite: 1]
+* Eliminates memory saturation during wide-matrix feature generation by streaming chunks[cite: 1]
+* Mitigates label sparsity during training via bounded negative sampling[cite: 1]
+* Trains ranking models to score valid target entities across multi-hop reasoning chains[cite: 1]
 
-* **Question-Guided Heuristic Path Pruning:** Resolves exponential state explosion over high-degree hub entities (1, 2, and 3 hops) by matching relation keywords directly against query text prior to random-walk probability computation.
-* **Out-of-Core Feature Pipeline:** Eliminates memory saturation ($OOM$) during wide-matrix feature generation by streaming $50,000$-row chunks directly to disk with explicit `float32` type-casting, incremental `pyarrow.parquet.ParquetWriter` execution, and deterministic garbage collection.
-* **Stratified Negative Sampling:** Mitigates label sparsity during training via bounded negative sampling ($5$ negatives per entity) paired with top-probability candidate ranking for evaluation splits.
-* **Model Training & Evaluation:** Trains ranking models to score valid target entities across multi-hop reasoning chains, benchmarked systematically via **Hits@1** and **Mean Reciprocal Rank (MRR)**.
+## Repository clone
 
----
-
-## 🏗 Pipeline Architecture
-User Query + Topic Entity
-│
-▼
-┌──────────────────┐
-│  Entity Linker   │ ──► Ground raw surface text to KG nodes
-└────────┬─────────┘
-│
-▼
-┌──────────────────┐
-│ Heuristic Filter │ ──► Discard relations absent from query lexical tokens
-└────────┬─────────┘
-│
-▼
-┌──────────────────┐
-│  Path Traversal  │ ──► Compute random-walk transition probabilities
-└────────┬─────────┘
-│
-▼
-┌──────────────────┐
-│ Out-of-Core Sink │ ──► Chunk-based memory management & PyArrow Parquet writer
-└────────┬─────────┘
-│
-▼
-┌──────────────────┐
-│  Ranking Models  │ ──► Evaluation via Hits@1 and MRR
-└──────────────────┘
-
-
----
-
-## 📂 Project Structure
-
-bash
-├── data/
-│   ├── entity_linker.py      # Entity linking module for topic entity groundings
-│   ├── load_graph.py         # Graph loader & adjacency indexer
-│   └── parse_qa.py           # QA parser for MetaQA splits
-├── track_a/
-│   ├── build_features.py     # Out-of-core feature extraction & Parquet generation
-│   ├── path_traversal.py     # Graph traversal and path probability algorithms
-│   └── dataset_processed/    # Target directory for partitioned Parquet splits
-├── conf.py                   # Global configuration and relation keyword maps
-├── requirements.txt          # Python dependencies
-└── README.md
-🚀 Getting Started
-1. Prerequisites & Installation
-Ensure Python 3.10+ is installed. Clone the repository and install dependencies:
-
-Bash
+```bash
 git clone [https://github.com/fil2405/multi-hop-kgqa-pra.git](https://github.com/fil2405/multi-hop-kgqa-pra.git)
 cd multi-hop-kgqa-pra
+```
+
+## Run the project
+
+### Requirements
+
+* Python 3.10+[cite: 1]
+* pandas[cite: 1]
+* pyarrow[cite: 1]
+* scikit-learn[cite: 2]
+
+### Start the stack
+
+```bash
 python -m venv venv
-source venv/bin/activate   # On Windows: venv\Scripts\activate
+source venv/bin/activate
 pip install -r requirements.txt
-2. Dependencies
-pyarrow>=14.0.0
+```
 
-pandas>=2.0.0
+## Logical Flow
 
-scikit-learn>=1.3.0
+1. Knowledge Graph and QA splits are loaded and parsed[cite: 2]
+2. Topic entities in natural language queries are grounded to KG nodes via an Entity Linker[cite: 2]
+3. A Heuristic Filter prunes the search space by intersecting relation keywords with query tokens[cite: 2]
+4. Random-walk transition probabilities are computed for valid multi-hop paths[cite: 2]
+5. Features are written out-of-core to compressed Parquet files in manageable chunks[cite: 2]
+6. Logistic Regression and SGD models are trained on the extracted features[cite: 2]
+7. Candidates are ranked and evaluated using Hits@1 and MRR metrics[cite: 2]
 
-3. Feature Extraction
-Run the out-of-core feature extraction pipeline for 1-hop, 2-hop, or 3-hop settings:
+## Technologies
 
-Bash
-python track_a/build_features.py
-Processed datasets will be streamed incrementally into track_a/dataset_processed/<hop>-hop/ as compressed Parquet files (train_set.parquet, dev_set.parquet, test_set.parquet).
+| Technology | What does Here |
+| --- | --- |
+| Python | Core language for the pipeline execution |
+| PyArrow | Handles out-of-core data streaming and explicit type-casting |
+| Parquet | Compressed file format for storing wide-matrix features on disk |
+| Pandas | Data manipulation and processing |
+| Scikit-learn | Model training and evaluation |
 
-📊 Evaluation Metrics
-Candidate answers are scored and ranked against ground-truth sets using:
+## Benchmarking
 
-Hits@1: Fraction of queries where the top-ranked candidate is a correct answer.
+For benchmarking purpose, the feature extraction and evaluation scripts can be used:[cite: 3]
 
-MRR (Mean Reciprocal Rank): Average reciprocal rank of the first correct answer across all test instances.
+```bash
+python src/pra_pipeline/feature_extractor.py
+python src/pra_pipeline/model.py
+```
+
+## Results
+
+### 1-hop (Standard Logistic Regression)
+
+* Train Hits@1: 0.9330 | MRR: 0.9569[cite: 4]
+* Dev Hits@1: 0.9356 | MRR: 0.9589[cite: 4]
+* Test Hits@1: 0.9338 | MRR: 0.9579[cite: 4]
+
+### 2-hop (Out-of-Core Logistic Regression)
+
+* Train Hits@1: 0.9630 | MRR: 0.9681[cite: 4]
+* Dev Hits@1: 0.9625 | MRR: 0.9675[cite: 4]
+* Test Hits@1: 0.9639 | MRR: 0.9684[cite: 4]
+
+### 3-hop (Out-of-Core Logistic Regression)
+
+* Train Hits@1: 0.9190 | MRR: 0.9393[cite: 4, 5]
+* Dev Hits@1: 0.8702 | MRR: 0.9059[cite: 4, 5]
+* Test Hits@1: 0.8675 | MRR: 0.9049[cite: 5]
