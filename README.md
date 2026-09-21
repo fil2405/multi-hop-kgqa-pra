@@ -14,7 +14,7 @@ At a high level:
 ## Repository clone
 
 ```bash
-git clone [https://github.com/fil2405/multi-hop-kgqa-pra.git](https://github.com/fil2405/multi-hop-kgqa-pra.git)
+git clone https://github.com/fil2405/multi-hop-kgqa-pra.git
 cd multi-hop-kgqa-pra
 ```
 
