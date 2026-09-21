@@ -39,7 +39,7 @@ A scalable, out-of-core Question Answering engine over large-scale Knowledge Gra
 ```
 ---
 
-## Quickstart
+## How to Run
 
 ### Option A: Run via Docker (Recommended, Zero Host Dependencies)
 
