@@ -90,13 +90,3 @@ Candidate answers are scored and ranked against ground-truth sets using:
 Hits@1: Fraction of queries where the top-ranked candidate is a correct answer.
 
 MRR (Mean Reciprocal Rank): Average reciprocal rank of the first correct answer across all test instances.
-
-
----
-
-### Prossimi passi consigliati
-
-1. Crea su GitHub la nuova repository pubblica (es. `multi-hop-kgqa-pra`).
-2. Carica il codice sorgente (il file `build_features.py` che abbiamo visto prima, la cartella `data/`, `conf.py` e il `requirements.txt`).
-3. Incolla questo testo nel file `README.md` nella radice del progetto.
-4. Torna sul tuo profilo principale (`fil2405`), clicca su **"Customize your pins"**, rimu
