@@ -7,6 +7,8 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 import conf as f
+import time
+import tracemalloc
 
 SRC_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = SRC_DIR / "data"
@@ -19,6 +21,7 @@ import data.load_graph as lg
 import data.parse_qa as pq_parser
 from data.entity_linker import EntityLinker
 import pra_pipeline.path_traversal as pt
+
 
 def extract_rel(g, hop=1):
     relations = set()
@@ -49,7 +52,9 @@ def extract_rel(g, hop=1):
 
     return valid_paths
 
+
 def build_features(hop=1, split="train", out_path=None):
+    random.seed(42)
     
     g = lg.load_graph()
     qa_data = pq_parser.parser(hop=hop, split=split)
@@ -58,7 +63,41 @@ def build_features(hop=1, split="train", out_path=None):
     candidate_paths = extract_rel(g, hop=hop)
     print(f"Found {len(candidate_paths)} valid {hop}-hop paths")
 
+    expected_cols = ['question_id', 'answer', 'label']
+    for path in candidate_paths:
+        col_name = "_THEN_".join(path)
+        expected_cols.extend([col_name, f'{col_name}_X_q'])
+        
+    float_cols = [c for c in expected_cols if c not in ['question_id', 'answer', 'label']]
+
+    #out-of-core
+    chunk_size = 50000 #800 MB per cicle
     data = []
+    parquet_writer = None
+    saved_chunks = 0
+
+    def flush_chunk(batch):
+        nonlocal parquet_writer, saved_chunks
+        if not batch:
+            return
+        df_chunk = pd.DataFrame(batch)
+        df_chunk = df_chunk.reindex(columns=expected_cols, fill_value=0.0)
+        df_chunk[float_cols] = df_chunk[float_cols].astype('float32')
+        df_chunk['question_id'] = df_chunk['question_id'].astype('int32')
+        df_chunk['label'] = df_chunk['label'].astype('int8')
+
+        #write the chunk on parquet file
+        table = pa.Table.from_pandas(df_chunk)
+        if parquet_writer is None:
+            parquet_writer = pq.ParquetWriter(out_path, table.schema)
+        
+        parquet_writer.write_table(table)
+        saved_chunks += 1
+        print(f"Saved chunk {saved_chunks}")
+        
+        del df_chunk
+        del table
+        gc.collect()
 
     for q_idx, qa in enumerate(qa_data):
         raw_head = qa['topic_entity']
@@ -94,7 +133,7 @@ def build_features(hop=1, split="train", out_path=None):
         if split == "train":
             positives = reached_set & true_answers
             negatives = list(reached_set - true_answers)
-            if len(negatives) > 5:  #negative sampling for train set
+            if len(negatives) > 5: #negative sampling for train set
                 negatives = random.sample(negatives, 5)
             final_candidates = list(positives) + negatives
         else:
@@ -120,38 +159,13 @@ def build_features(hop=1, split="train", out_path=None):
             row['label'] = 1 if candidate in qa['answers'] else 0                
             data.append(row)
 
-    #out-of-core
-    print(f"\nWriting {len(data)} rows directly to disk...")
-    
-    expected_cols = ['question_id', 'answer', 'label']
-    for path in candidate_paths:
-        col_name = "_THEN_".join(path)
-        expected_cols.extend([col_name, f'{col_name}_X_q'])
-        
-    float_cols = [c for c in expected_cols if c not in ['question_id', 'answer', 'label']]
+            if len(data) >= chunk_size:
+                flush_chunk(data)
+                data.clear()
 
-    chunk_size = 50000 #800 MB per cicle
-    parquet_writer = None
-    
-    for i in range(0, len(data), chunk_size):
-        chunk = data[i:i + chunk_size]
-        df_chunk = pd.DataFrame(chunk)
-        
-        df_chunk = df_chunk.reindex(columns=expected_cols, fill_value=0.0)
-        
-        df_chunk[float_cols] = df_chunk[float_cols].astype('float32')
-        
-        #write the chunk on parquet file
-        table = pa.Table.from_pandas(df_chunk)
-        if parquet_writer is None:
-            parquet_writer = pq.ParquetWriter(out_path, table.schema)
-        
-        parquet_writer.write_table(table)
-        print(f"Saved chunk {i // chunk_size + 1} of {(len(data) // chunk_size) + 1}")
-        
-        del df_chunk
-        del table
-        gc.collect()
+    if data:
+        flush_chunk(data)
+        data.clear()
 
     if parquet_writer:
         parquet_writer.close()
@@ -160,12 +174,22 @@ def build_features(hop=1, split="train", out_path=None):
 
 
 if __name__ == '__main__':
-
-    out_dir = SRC_DIR / "track_a" / "dataset_processed" / f"{f.HOP}-hop"
+    out_dir = SRC_DIR / "pra_pipeline" / "dataset_processed" / f"{f.HOP}-hop"
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    tracemalloc.start()
+    start_time = time.perf_counter()
 
     for split in ["train", "dev", "test"]:
         out_parq = out_dir / f"{split}_set.parquet"
         print(f"\n--- Processing {split.upper()} set ---")
         build_features(hop=f.HOP, split=split, out_path=out_parq)
         print(f"Dataset saved in {out_parq}")
+
+    elapsed_time = time.perf_counter() - start_time
+    _, peak_memory = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+
+    print(f"\n=== Benchmark Summary ({f.HOP}-hop) ===")
+    print(f"Total Execution Time : {elapsed_time:.2f} s ({elapsed_time/60:.2f} min)")
+    print(f"Peak RAM Usage       : {peak_memory / (1024 * 1024):.2f} MB")

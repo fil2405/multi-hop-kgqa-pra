@@ -10,7 +10,6 @@ for p in [str(SRC_DIR), str(DATA_DIR)]:
         sys.path.insert(0, p)
 
 import data.load_graph as lg
-import data.parse_qa as pq
 
 def prob(g, head, rel):
 
@@ -20,8 +19,11 @@ def prob(g, head, rel):
         next_nodes = {}
 
         for node, p in current_nodes.items():
-            if r in g[node]:
+            if node in g and r in g[node]:
                 neighbors = g[node][r]
+                if not neighbors:
+                    continue
+                    
                 k = p / len(neighbors)
 
                 for target in neighbors:
@@ -31,6 +33,10 @@ def prob(g, head, rel):
                         next_nodes[target] = k
 
         current_nodes = next_nodes
+        
+        #early stop if all paths hit a dead end
+        if not current_nodes:
+            break
 
     return current_nodes
 

@@ -5,10 +5,10 @@ import pandas as pd
 import pyarrow.parquet as pq
 from sklearn.linear_model import SGDClassifier, LogisticRegression
 import conf as f
-
-SRC_DIR = Path(__file__).resolve().parent.parent
+import time
 
 def evaluate_dataset(model, parquet_path, feature_cols):
+    start_time = time.perf_counter()
     parquet_file = pq.ParquetFile(parquet_path)
     results = []
     
@@ -37,11 +37,19 @@ def evaluate_dataset(model, parquet_path, feature_cols):
     best_ranks = correct_hits.groupby('question_id')['rank'].min()
     total_questions = eval_df['question_id'].nunique()
     mrr = (1.0 / best_ranks).sum() / total_questions
+
+    total_time = time.perf_counter() - start_time
+    total_questions = eval_df['question_id'].nunique()
+    
+    latency_ms = (total_time / total_questions) * 1000
+    qps = total_questions / total_time
+    
+    print(f"Evaluation Time: {total_time:.2f}s | Latency: {latency_ms:.2f} ms/query | QPS: {qps:.1f}")
     
     return hits_at_1, mrr
 
 def train():
-    train_path = SRC_DIR / "track_a" / f.TRAIN_PATH
+    train_path = f.TRAIN_PATH
     
     parquet_file = pq.ParquetFile(train_path)
     feature_cols = [c for c in parquet_file.schema.names if c not in ['question_id', 'answer', 'label']]
@@ -80,12 +88,12 @@ def train():
     print(f"Train Hits@1: {train_hits:.4f} | MRR: {train_mrr:.4f}")
 
     print("\nEvaluating Dev set...")
-    dev_path = SRC_DIR / "track_a" / f.DEV_PATH
+    dev_path = f.DEV_PATH
     dev_hits, dev_mrr = evaluate_dataset(model, dev_path, feature_cols)
     print(f"Dev Hits@1:   {dev_hits:.4f} | MRR: {dev_mrr:.4f}")
 
     print("\nEvaluating Test set...")
-    test_path = SRC_DIR / "track_a" / f.TEST_PATH
+    test_path = f.TEST_PATH
     test_hits, test_mrr = evaluate_dataset(model, test_path, feature_cols)
     print(f"Test Hits@1:  {test_hits:.4f} | MRR: {test_mrr:.4f}\n")
 
