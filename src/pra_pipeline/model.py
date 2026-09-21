@@ -3,6 +3,7 @@ import gc
 from pathlib import Path
 import pandas as pd
 import pyarrow.parquet as pq
+import scipy.sparse as sp
 from sklearn.linear_model import SGDClassifier, LogisticRegression
 import conf as f
 import time
@@ -12,13 +13,20 @@ def evaluate_dataset(model, parquet_path, feature_cols):
     parquet_file = pq.ParquetFile(parquet_path)
     results = []
     
-    for batch in parquet_file.iter_batches(batch_size=50000):
+    # reduced batch_size to prevent OOM
+    for batch in parquet_file.iter_batches(batch_size=5000):
         df_chunk = batch.to_pandas().fillna(0.0)
-        X_chunk = df_chunk[feature_cols].astype('float32').values
+        
+        # convert to sparse matrix to reduce memory usage
+        X_chunk = sp.csr_matrix(df_chunk[feature_cols].astype('float32').values)
         
         out_df = df_chunk[['question_id', 'label']].copy()
         out_df['pred_score'] = model.predict_proba(X_chunk)[:, 1]
         results.append(out_df)
+        
+        # force memory cleanup
+        del df_chunk, X_chunk
+        gc.collect()
             
     eval_df = pd.concat(results, ignore_index=True)
     
@@ -58,7 +66,7 @@ def train():
     if f.HOP == 1:
         print("Training Logistic Regression for 1-hop...")
         train_df = pd.read_parquet(train_path).fillna(0.0)
-        X_train = train_df[feature_cols].astype('float32').values
+        X_train = sp.csr_matrix(train_df[feature_cols].astype('float32').values)
         y_train = train_df['label'].values
         
         model = LogisticRegression(max_iter=500, solver='lbfgs', random_state=42)
@@ -74,13 +82,20 @@ def train():
         
         model = SGDClassifier(loss='log_loss', penalty=pen, alpha=a, random_state=42)
         
-        for i, batch in enumerate(parquet_file.iter_batches(batch_size=50000)):
+        #reduced batch_size to prevent OOM
+        for i, batch in enumerate(parquet_file.iter_batches(batch_size=5000)):
             df_chunk = batch.to_pandas().fillna(0.0)
-            X_chunk = df_chunk[feature_cols].astype('float32').values
+            
+            #convert to sparse matrix to reduce memory usage
+            X_chunk = sp.csr_matrix(df_chunk[feature_cols].astype('float32').values)
             y_chunk = df_chunk['label'].values
             
             model.partial_fit(X_chunk, y_chunk, classes=[0, 1])
             print(f"Processed train batch {i+1}...")
+            
+            #force memory cleanup
+            del df_chunk, X_chunk, y_chunk
+            gc.collect()
 
     #evaluation
     print("\nEvaluating Train set...")
