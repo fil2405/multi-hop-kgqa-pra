@@ -102,11 +102,11 @@ python src/pra_pipeline/model.py
 
 Memory footprint and latency benchmarked across reasoning chain depths:
 
-| Configuration | Extraction Time | Peak RAM (MB) | Inference Latency | Throughput (QPS) |
+| Configuration | Extraction Time | Peak RAM | Inference Latency | Throughput (QPS) |
 | :--- | :--- | :--- | :--- | :--- |
-| 1-Hop | 25.87 s | 153.68 | 0.04 ms/query | 245,504.0 |
-| 2-Hop | 297.50 s | 396.56 | 0.03 ms/query | 31,300.8 |
-| 3-Hop | — | — | — | — |
+| 1-Hop | 30.75 s | 161.42 MB | 0.00 ms/query | 245,504.0 |
+| 2-Hop | 127.03 s | 626.83 MB | 0.02 ms/query | 31,300.8 |
+| 3-Hop | 2626.38 s | 5165.87 MB | 0.92 ms/query | 1092.1 |
 
 > **Memory Stability Note:** *While standard in-memory DataFrame extraction triggers Out-Of-Memory (`OOM`) crashes on 2-hop and 3-hop traversals under constrained RAM environments, the chunked Parquet streaming pipeline guarantees bounded peak memory usage regardless of total dataset size.*
 
@@ -116,12 +116,12 @@ Evaluated on the official MetaQA vanilla benchmark:
 
 | Split | Metric | 1-Hop | 2-Hop | 3-Hop |
 | :--- | :--- | :--- | :--- | :--- |
-| Train | Hits@1 | 0.9940 | 0.9846 | |
-| | MRR | 0.9958 | 0.9902 | |
-| Dev | Hits@1 | 0.9953 | 0.9809 | |
-| | MRR | 0.9969 | 0.9866 | |
-| Test | Hits@1 | 0.9951 | 0.9827 | |
-| | MRR | 0.9964 | 0.9881 | |
+| Train | Hits@1 | 0.9940 | 0.9846 | 0.9476 |
+| | MRR | 0.9958 | 0.9902 | 0.9660 |
+| Dev | Hits@1 | 0.9953 | 0.9809 | 0.8873 |
+| | MRR | 0.9969 | 0.9866 | 0.9255 |
+| Test | Hits@1 | 0.9951 | 0.9827 | 0.8876 |
+| | MRR | 0.9964 | 0.9881 | 0.9255 |
 
 ## Repository Structure
 
